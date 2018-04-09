@@ -6,6 +6,7 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/britojr/lkbn/factor"
 	"github.com/britojr/lkbn/vars"
 	"github.com/britojr/utl/conv"
 	"github.com/britojr/utl/ioutl"
@@ -15,6 +16,7 @@ import (
 type Struct struct {
 	vs                vars.VarList
 	parents, children map[string]vars.VarList
+	factors           map[string]*factor.Factor
 }
 
 // NewStruct creates a new empty bif structure
@@ -23,6 +25,7 @@ func NewStruct() *Struct {
 	b.vs = vars.VarList{}
 	b.parents = make(map[string]vars.VarList)
 	b.children = make(map[string]vars.VarList)
+	b.factors = make(map[string]*factor.Factor)
 	return b
 }
 
@@ -73,6 +76,11 @@ func (b *Struct) Internals() (is vars.VarList) {
 	return
 }
 
+// Factor returns the corresponding factor for a given variable
+func (b *Struct) Factor(vname string) *factor.Factor {
+	return b.factors[vname]
+}
+
 // ParseStruct creates a bif struct from a file
 func ParseStruct(fname string) *Struct {
 	f := ioutl.OpenFile(fname)
@@ -102,14 +110,34 @@ func ParseStruct(fname string) *Struct {
 			vFamily[2] = strings.TrimSpace(strings.Replace(vFamily[2], ",", " ", -1))
 			vx := b.vs.FindByName(vFamily[1])
 			pavx := vars.VarList{}
+			varOrd := vars.VarList{vx}
 			for _, vname := range strings.Fields(vFamily[2]) {
-				pavx.Add(b.vs.FindByName(vname))
+				p := b.vs.FindByName(vname)
+				pavx.Add(p)
+				varOrd = append(varOrd, p)
 			}
 			b.parents[vx.Name()] = pavx
 			for _, v := range pavx {
 				ch := b.children[v.Name()]
 				b.children[v.Name()] = ch.Add(vx)
 			}
+			family := pavx.Union(vars.VarList{vx})
+			nlines := pavx.NStates()
+			nvals := vx.NState()
+			values := []float64{}
+			for i := 0; i < nlines; i++ {
+				scanner.Scan()
+				line := strings.Fields(strings.Replace(strings.Trim(scanner.Text(), ";"), ",", "", -1))
+				line = line[len(line)-nvals:]
+				values = append(values, conv.Satof(line)...)
+			}
+			arranged := make([]float64, family.NStates())
+			ixf := vars.NewOrderedIndex(varOrd, family)
+			for _, v := range values {
+				arranged[ixf.I()] = v
+				ixf.Next()
+			}
+			b.factors[vx.Name()] = factor.New(family...).SetValues(arranged)
 		}
 	}
 	return b
