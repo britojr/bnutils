@@ -3,12 +3,14 @@ package bif
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"regexp"
 	"strings"
 
 	"github.com/britojr/lkbn/factor"
 	"github.com/britojr/lkbn/vars"
 	"github.com/britojr/utl/conv"
+	"github.com/britojr/utl/floats"
 	"github.com/britojr/utl/ioutl"
 )
 
@@ -170,9 +172,15 @@ func ParseStruct(fname string) *Struct {
 						attrMap[pa.ID()] = pa.StateID(stName)
 					}
 					line = line[i+1:]
+					acc := 0.0
 					for i, v := range strings.Fields(line) {
 						attrMap[vx.ID()] = i
-						arranged[ixf.AttrbIndex(attrMap)] = conv.Atof(strings.TrimSpace(v))
+						fv := conv.Atof(strings.TrimSpace(v))
+						arranged[ixf.AttrbIndex(attrMap)] = fv
+						acc += fv
+					}
+					if !floats.AlmostEqual(acc, 1.0, 1e-6) {
+						log.Printf("warnig: unnormalized distribution (%v)\n", acc)
 					}
 				}
 			}
