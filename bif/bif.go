@@ -101,6 +101,23 @@ func ParseStruct(fname string) *Struct {
 		vNState := reCard.FindStringSubmatch(scanner.Text())
 		if len(vNState) > 1 {
 			b.vs.Add(vars.New(i, conv.Atoi(vNState[1]), name, false))
+			stateline := scanner.Text()
+			j := strings.Index(stateline, "{")
+			if j >= 0 {
+				stateline = stateline[j+1:]
+				j = strings.Index(stateline, "}")
+				for j < 0 {
+					scanner.Scan()
+					stateline += scanner.Text()
+					j = strings.Index(stateline, "}")
+				}
+				stateline = stateline[:j]
+				states := strings.Split(stateline, ",")
+				for i, s := range states {
+					states[i] = strings.TrimSpace(s)
+				}
+				b.vs[i].SetStates(states)
+			}
 			i++
 		}
 
@@ -122,20 +139,42 @@ func ParseStruct(fname string) *Struct {
 				b.children[v.Name()] = ch.Add(vx)
 			}
 			family := pavx.Union(vars.VarList{vx})
-			nlines := pavx.NStates()
-			nvals := vx.NState()
-			values := []float64{}
-			for i := 0; i < nlines; i++ {
-				scanner.Scan()
-				line := strings.Fields(strings.Replace(strings.Trim(scanner.Text(), ";"), ",", "", -1))
-				line = line[len(line)-nvals:]
-				values = append(values, conv.Satof(line)...)
-			}
 			arranged := make([]float64, family.NStates())
-			ixf := vars.NewOrderedIndex(varOrd, family)
-			for _, v := range values {
-				arranged[ixf.I()] = v
-				ixf.Next()
+
+			for scanner.Scan() {
+				if strings.TrimSpace(scanner.Text()) == "}" {
+					break
+				}
+				line := strings.Trim(scanner.Text(), ";")
+				line = strings.Replace(line, ",", " ", -1)
+				if i := strings.Index(line, "table"); i >= 0 {
+					values := make([]float64, family.NStates())
+					line = line[i+len("table"):]
+					for i, v := range strings.Fields(line) {
+						values[i] = conv.Atof(strings.TrimSpace(v))
+					}
+					ixf := vars.NewOrderedIndex(varOrd, family)
+					for _, v := range values {
+						arranged[ixf.I()] = v
+						ixf.Next()
+					}
+				}
+				if i := strings.Index(line, ")"); i >= 0 {
+					ixf := vars.NewIndexFor(family, family)
+					attrMap := make(map[int]int)
+					atts := strings.TrimSpace(line[:i])
+					atts = strings.Trim(atts, "()")
+					for i, v := range strings.Fields(atts) {
+						stName := strings.TrimSpace(v)
+						pa := varOrd[i+1]
+						attrMap[pa.ID()] = pa.StateID(stName)
+					}
+					line = line[i+1:]
+					for i, v := range strings.Fields(line) {
+						attrMap[vx.ID()] = i
+						arranged[ixf.AttrbIndex(attrMap)] = conv.Atof(strings.TrimSpace(v))
+					}
+				}
 			}
 			b.factors[vx.Name()] = factor.New(family...).SetValues(arranged)
 		}

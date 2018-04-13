@@ -1,6 +1,7 @@
 package bif
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/britojr/lkbn/factor"
@@ -19,6 +20,35 @@ var sachVars = vars.VarList{
 	vars.New(8, 3, "PKC", false),
 	vars.New(9, 3, "Plcg", false),
 	vars.New(10, 3, "Raf", false),
+}
+
+func init() {
+	for _, v := range sachVars {
+		v.SetStates([]string{"LOW", "AVG", "HIGH"})
+	}
+}
+
+func TestBifVariables(t *testing.T) {
+	cases := []struct {
+		fname string
+		vs    vars.VarList
+	}{
+		{"sachs.bif", sachVars},
+	}
+	for _, tt := range cases {
+		got := ParseStruct(tt.fname)
+		if got == nil {
+			t.Errorf("got nil structure for file %v\n", tt.fname)
+		}
+		if !tt.vs.Equal(got.Variables()) {
+			t.Errorf("got different vars\n%v\n!=\n%v\n", tt.vs, got.Variables())
+		}
+		for i, v := range tt.vs {
+			if !reflect.DeepEqual(got.Variables()[i].States(), v.States()) {
+				t.Errorf("got different states\n%v\n!=\n%v\n", v.States(), got.Variables()[i].States())
+			}
+		}
+	}
 }
 
 func TestBifStruct(t *testing.T) {
