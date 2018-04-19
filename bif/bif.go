@@ -2,6 +2,7 @@ package bif
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"log"
 	"regexp"
@@ -84,7 +85,7 @@ func (b *Struct) Factor(vname string) *factor.Factor {
 }
 
 // ParseStruct creates a bif struct from a file
-func ParseStruct(fname string) *Struct {
+func ParseStruct(fname string) (*Struct, error) {
 	f := ioutl.OpenFile(fname)
 	defer f.Close()
 	b := NewStruct()
@@ -180,12 +181,22 @@ func ParseStruct(fname string) *Struct {
 						acc += fv
 					}
 					if !floats.AlmostEqual(acc, 1.0, 1e-6) {
-						log.Printf("warnig: unnormalized distribution (%v)\n", acc)
+						attrStr := "{"
+						for _, pa := range varOrd[1:] {
+							attrStr += fmt.Sprintf("%v=%v,", pa.Name(), attrMap[pa.ID()])
+						}
+						attrStr += "}"
+						log.Printf("warnig: conditional dist. unnormalized (tot: %v)\n\tvar: %v\tparents(%v)\n",
+							acc, varOrd[0], attrStr,
+						)
 					}
 				}
 			}
 			b.factors[vx.Name()] = factor.New(family...).SetValues(arranged)
 		}
 	}
-	return b
+	if len(b.vs) == 0 {
+		return nil, errors.New("invalid file format")
+	}
+	return b, nil
 }

@@ -36,7 +36,7 @@ func TestBifVariables(t *testing.T) {
 		{"sachs.bif", sachVars},
 	}
 	for _, tt := range cases {
-		got := ParseStruct(tt.fname)
+		got, _ := ParseStruct(tt.fname)
 		if got == nil {
 			t.Errorf("got nil structure for file %v\n", tt.fname)
 		}
@@ -62,7 +62,7 @@ func TestBifStruct(t *testing.T) {
 		vars.VarList{sachVars[1], sachVars[3], sachVars[6], sachVars[7], sachVars[10]},
 	}}
 	for _, tt := range cases {
-		got := ParseStruct(tt.fname)
+		got, _ := ParseStruct(tt.fname)
 		if got == nil {
 			t.Errorf("got nil structure for file %v", tt.fname)
 		}
@@ -106,7 +106,7 @@ func TestBifFactors(t *testing.T) {
 	}}
 
 	for _, tt := range cases {
-		got := ParseStruct(tt.fname)
+		got, _ := ParseStruct(tt.fname)
 		if got == nil {
 			t.Errorf("got nil structure for file %v", tt.fname)
 		}
